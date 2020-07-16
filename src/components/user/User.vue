@@ -185,6 +185,7 @@ export default {
         this.$message.success('添加用户成功')
 
         this.dialogVisible = false
+        //刷新列表
         this.getUserList()
       })
     }
