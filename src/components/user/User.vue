@@ -21,7 +21,7 @@
           </el-input>
         </el-col>
         <el-col :span="4">
-          <el-button type="primary" @click="dialogVisible=true">添加用户</el-button>
+          <el-button type="primary" @click="addDialogVisible=true">添加用户</el-button>
         </el-col>
       </el-row>
 
@@ -38,9 +38,19 @@
           </template>
         </el-table-column>
         <el-table-column label="操作" width="180px">
-          <template>
-            <el-button type="primary" icon="el-icon-edit" size="mini"></el-button>
-            <el-button type="danger" icon="el-icon-delete" size="mini"></el-button>
+          <template slot-scope="scope">
+            <el-button
+              type="primary"
+              icon="el-icon-edit"
+              size="mini"
+              @click="editUser(scope.row.id)"
+            ></el-button>
+            <el-button
+              type="danger"
+              icon="el-icon-delete"
+              size="mini"
+              @click="removeUserByid(scope.row.id)"
+            ></el-button>
             <el-tooltip effect="dark" content="设置分类" placement="top" :enterable="false">
               <el-button type="warning" icon="el-icon-setting" size="mini"></el-button>
             </el-tooltip>
@@ -59,12 +69,17 @@
       ></el-pagination>
     </el-card>
     <!--对话框-->
-    <el-dialog title="提示" :visible.sync="dialogVisible" width="50%" @close="dialogVisibleClose">
+    <el-dialog
+      title="提示"
+      :visible.sync="addDialogVisible"
+      width="50%"
+      @close="addDialogVisibleClose"
+    >
       <el-form :model="addForm" :rules="addFormRules" ref="addFormRef" label-width="70px">
         <el-form-item label="用户名" prop="username">
           <el-input v-model="addForm.username"></el-input>
         </el-form-item>
-        <el-form-item label="密码" prop="password" >
+        <el-form-item label="密码" prop="password">
           <el-input v-model="addForm.password" type="password"></el-input>
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
@@ -77,6 +92,29 @@
       <span slot="footer" class="dialog-footer">
         <el-button @click="dialogVisible = false">取 消</el-button>
         <el-button type="primary" @click="addUser">确 定</el-button>
+      </span>
+    </el-dialog>
+    <!--修改用户对话框-->
+    <el-dialog
+      title="修改用户信息"
+      :visible.sync="editDialogVisible"
+      width="50%"
+      @close="editDialogVisibleClose"
+    >
+      <el-form :model="editForm" :rules="editFormRules" ref="editFormRef" label-width="70px">
+        <el-form-item label="用户名">
+          <el-input v-model="editForm.username" disabled></el-input>
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="editForm.email"></el-input>
+        </el-form-item>
+        <el-form-item label="手机号" prop="mobile">
+          <el-input v-model="editForm.mobile"></el-input>
+        </el-form-item>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="editDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="editUserInfo">确 定</el-button>
       </span>
     </el-dialog>
   </div>
@@ -109,7 +147,7 @@ export default {
       },
       userList: [],
       total: 0,
-      dialogVisible: false,
+      addDialogVisible: false,
       addForm: {
         username: "",
         password: "",
@@ -127,11 +165,25 @@ export default {
         ],
         email: [
           { required: true, message: "邮箱不能为空" },
-          {validator: checkEmail, trigger: 'blur'}
+          { validator: checkEmail, trigger: "blur" }
         ],
         mobile: [
           { required: true, message: "号码不能为空" },
-          {validator: checkPhone, trigger: 'blur'}
+          { validator: checkPhone, trigger: "blur" }
+        ]
+      },
+      //修改用户信息
+      editDialogVisible: false,
+      //查询到的用户信息对象
+      editForm: [],
+      editFormRules: {
+        email: [
+          { required: true, message: "邮箱不能为空" },
+          { validator: checkEmail, trigger: "blur" }
+        ],
+        mobile: [
+          { required: true, message: "号码不能为空" },
+          { validator: checkPhone, trigger: "blur" }
         ]
       }
     };
@@ -171,23 +223,80 @@ export default {
       }
       this.$message.success("更新状态成功");
     },
-    dialogVisibleClose(){
-      this.$refs.addFormRef.resetFields()
+    addDialogVisibleClose() {
+      this.$refs.addFormRef.resetFields();
     },
-    addUser(){
-      this.$refs.addFormRef.validate(async valid=>{
-        if(!valid) return
+    addUser() {
+      this.$refs.addFormRef.validate(async valid => {
+        if (!valid) return;
         //可以发起用户请求
-        const{data:res}=await this.$http.post('users',this.addForm)
-        if(res.meta.status!==201){
-          return this.$message.error('添加用户失败')
+        const { data: res } = await this.$http.post("users", this.addForm);
+        if (res.meta.status !== 201) {
+          return this.$message.error("添加用户失败");
         }
-        this.$message.success('添加用户成功')
+        this.$message.success("添加用户成功");
 
-        this.dialogVisible = false
+        this.addDialogVisible = false;
         //刷新列表
-        this.getUserList()
-      })
+        this.getUserList();
+      });
+    },
+    //查询修改用户信息
+    async editUser(id) {
+      console.log(id);
+      const { data: res } = await this.$http.get("users/" + id);
+      if (res.meta.status !== 200) {
+        return this.$message.error("查询修改用户信息失败");
+      }
+      this.editForm = res.data;
+      this.editDialogVisible = true;
+    },
+    editDialogVisibleClose() {
+      this.$refs.editFormRef.resetFields();
+    },
+    //修改用户信息并提交
+    editUserInfo() {
+      //表单验证
+      this.$refs.editFormRef.validate(async valid => {
+        console.log(valid);
+        if (!valid) return;
+        //发起修改用户信息请求
+        const { data: res } = await this.$http.put(
+          `users/${this.editForm.id}`,
+          {
+            email: this.editForm.email,
+            mobile: this.editForm.mobile
+          }
+        );
+        if (res.meta.status !== 200) {
+          return this.$message.error("修改失败");
+        }
+        this.editDialogVisible = false;
+        this.getUserList();
+        this.$message.success("修改用户成功");
+        console.log(res);
+      });
+    },
+    async removeUserByid(id) {
+      console.log(id);
+      const confirmDel = await this.$confirm(
+        "此操作将永久删除该用户, 是否继续?",
+        "提示",
+        {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          type: "warning"
+        }
+      ).catch(err => err);
+      if (confirmDel !== "confirm") {
+        return this.$message.info("已取消删除");
+      }
+      const { data: res } = await this.$http.delete(`users/${id}`);
+      if (res.meta.status !== 200) {
+        return this.$message.error("删除用户失败");
+      }
+      this.$message.success("删除用户成功");
+      this.getUserList();
     }
   }
 };
