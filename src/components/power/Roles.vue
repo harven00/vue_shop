@@ -259,7 +259,7 @@ export default {
         }
       ).catch(err => err);
       if (removeR !== "confirm") {
-        this.$message.info("已取消删除角色");
+        return this.$message.info("已取消删除角色");
       }
       const { data: res } = await this.$http.delete(`roles/${id}`);
       if (res.meta.status !== 200) {
